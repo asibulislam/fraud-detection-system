@@ -1,23 +1,23 @@
 Django==5.0.6
 djangorestframework==3.15.1
-psycopg2-binary==2.9.9
+psycopg[binary]>=3.2
 python-dotenv==1.0.1
 
 # ML / Data
-scikit-learn==1.4.2
-xgboost==2.0.3
-imbalanced-learn==0.12.2
-pandas==2.2.2
-numpy==1.26.4
-shap==0.45.1
-joblib==1.4.2
+scikit-learn>=1.5
+xgboost>=2.1
+imbalanced-learn>=0.13
+pandas>=2.2
+numpy>=2.0
+shap>=0.46
+joblib>=1.4
 
 # Notebooks / EDA
-jupyter==1.0.0
-matplotlib==3.8.4
-seaborn==0.13.2
+jupyter>=1.0
+matplotlib>=3.9
+seaborn>=0.13
 
 # Dev
-pytest==8.2.0
-pytest-django==4.8.0
-black==24.4.2
+pytest>=8.2
+pytest-django>=4.9
+black>=24.4
