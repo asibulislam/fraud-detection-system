@@ -1,122 +1,99 @@
-# Real-Time Fraud Detection System
+# Fraud Detection System
 
-A fraud/anomaly detection system that scores transactions in real time using
-ML models trained on the Kaggle Credit Card Fraud dataset, served through a
-Django REST API with PostgreSQL storage and a human feedback loop.
+A real-time transaction fraud scoring API. Trains ML models on the Kaggle
+credit card fraud dataset and serves predictions through a Django REST API,
+with results stored in PostgreSQL and a basic feedback loop for reviewing
+flagged transactions.
 
-**Status:** 🚧 In progress — Week 1 of 8
+## The problem
 
-## Why this project
+Fraud is about 0.17% of transactions in this dataset (492 out of 284,807).
+That imbalance is the actual challenge here — a model that just predicts
+"not fraud" every time gets 99.8% accuracy and is completely useless. So the
+real work is in choosing the right metrics and understanding the tradeoff
+between catching fraud (recall) and not drowning legitimate users in false
+flags (precision).
 
-Fraud detection is a real, widely-deployed ML problem with a genuinely hard
-core challenge: the data is extremely imbalanced (fraud is ~0.17% of
-transactions), so naive accuracy metrics are meaningless. This project's
-goal isn't just "train a model that works" — it's to demonstrate:
+Two models trained so far:
 
-- Proper handling of class imbalance (SMOTE, class weighting, threshold tuning)
-- A comparison between supervised (Random Forest / XGBoost) and unsupervised
-  (Isolation Forest) approaches
-- Evaluation framed around business cost (false negatives vs false positives),
-  not just accuracy
-- A production-shaped system: API, storage, and a feedback loop — not just a
-  Jupyter notebook
+| Model | Precision (fraud) | Recall (fraud) | ROC-AUC |
+|---|---|---|---|
+| Logistic Regression (baseline) | 0.05 | 0.92 | — |
+| Random Forest | 0.93 | 0.79 | 0.96 |
+
+Logistic Regression flags almost everything as fraud — high recall, useless
+precision. Random Forest is the more usable model in practice: it misses
+more fraud but the flags it does raise are actually trustworthy. Still need
+to check whether Isolation Forest (unsupervised) can close that recall gap
+without wrecking precision.
+
+## Stack
+
+Django + DRF, PostgreSQL, scikit-learn / XGBoost / imbalanced-learn, SHAP
+for explainability later.
 
 ## Architecture
 
 ```
-┌─────────────┐      ┌──────────────────┐      ┌─────────────┐
-│   Client /   │─────▶│  Django REST API │─────▶│  ML Model   │
-│  Dashboard   │      │  (fraud_api app) │      │ (joblib)    │
-└─────────────┘      └────────┬─────────┘      └─────────────┘
-                               │
-                               ▼
-                      ┌──────────────────┐
-                      │   PostgreSQL      │
-                      │ Transaction +     │
-                      │ FraudPrediction   │
-                      └──────────────────┘
+Client → Django REST API → ML model (joblib)
+                ↓
+          PostgreSQL (transactions + predictions)
 ```
-
-## Tech stack
-
-- **Backend:** Django + Django REST Framework
-- **Database:** PostgreSQL
-- **ML:** scikit-learn, XGBoost, imbalanced-learn, SHAP (explainability)
-- **Data:** [Kaggle Credit Card Fraud Detection dataset](https://www.kaggle.com/mlg-ulb/creditcardfraud)
-
-## Project plan
-
-| Weeks | Focus | Status |
-|-------|-------|--------|
-| 1-2 | Data exploration, baseline model, imbalance handling, Django skeleton | 🚧 |
-| 3-4 | Isolation Forest vs XGBoost/Random Forest comparison | ⬜ |
-| 5-6 | Serving API, dashboard, feedback loop | ⬜ |
-| 7-8 | Evaluation rigor (cost-based metrics, SHAP), deploy, polish README | ⬜ |
 
 ## Setup
 
 ```bash
-# 1. Clone and enter the repo
-git clone <your-repo-url>
+git clone https://github.com/asibulislam/fraud-detection-system.git
 cd fraud-detection-system
 
-# 2. Create virtual environment
 python -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
-
-# 3. Install dependencies
+source venv/bin/activate
 pip install -r requirements.txt
 
-# 4. Configure environment
-cp .env.example .env
-# edit .env with your local PostgreSQL credentials
+cp .env.example .env   # fill in your local PostgreSQL creds
 
-# 5. Create the database (in psql)
-createdb fraud_detection_db
-
-# 6. Download the dataset (requires free Kaggle account + API token)
-python scripts/download_data.py
-
-# 7. Train the model
+python scripts/download_data.py   # needs a Kaggle API token in ~/.kaggle/
 python scripts/train_model.py
 
-# 8. Run migrations and start the server
 cd fraud_project
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver
 ```
 
-## API endpoints
+## API
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/score/` | Score a transaction, returns fraud probability + flag |
-| GET | `/api/flagged/` | List all transactions currently flagged as fraud |
-| POST | `/api/predictions/<id>/feedback/` | Mark a prediction as confirmed fraud / false positive |
+| Method | Endpoint | What it does |
+|---|---|---|
+| POST | `/api/score/` | Score a transaction, returns fraud probability |
+| GET | `/api/flagged/` | List transactions currently flagged |
+| POST | `/api/predictions/<id>/feedback/` | Mark a flag as confirmed fraud / false positive |
 
-Example request:
 ```bash
 curl -X POST http://localhost:8000/api/score/ \
   -H "Content-Type: application/json" \
-  -d '{"amount": 120.50, "features": {"V1": -1.36, "V2": -0.07, "...": 0.0}}'
+  -d '{"amount": 120.50, "features": {"V1": -1.36, "V2": -0.07}}'
 ```
 
-## Evaluation (to be filled in as the project progresses)
+## What's next
 
-- Precision / Recall / F1 per model
-- ROC-AUC comparison: Logistic Regression vs Random Forest vs Isolation Forest
-- Cost-based analysis: estimated $ impact of false negatives vs false positives
-- SHAP explainability plots for flagged transactions
+- Isolation Forest for an unsupervised comparison against the two models above
+- SMOTE / threshold tuning to see if Logistic Regression's precision can be
+  salvaged
+- SHAP plots so flagged transactions come with an explanation, not just a
+  score
+- A cost-based framing for the metrics — a false negative and a false
+  positive don't cost the same thing in a real fraud system, and the eval
+  should reflect that instead of just reporting precision/recall in a
+  vacuum
 
-## Honest limitations
+## Limitations
 
-- The Kaggle dataset's features are PCA-anonymized (V1-V28), so this project
-  focuses on the modeling/imbalance/serving problem rather than real-world
-  feature engineering — a production system would need domain-specific
-  features (velocity checks, merchant risk scores, device fingerprinting, etc.)
-- This is a portfolio/learning project, not a production-hardened system —
-  no auth on the API yet, no rate limiting, no real-time streaming ingestion.
+The dataset's features (V1–V28) are PCA-anonymized, so there's no real
+feature engineering here — a production system would need transaction
+velocity, merchant risk, device fingerprinting, etc. This is a learning
+project, not a deployable one: no auth on the API, no rate limiting, no
+streaming ingestion.
 
 ## License
 
