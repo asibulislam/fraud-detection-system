@@ -97,4 +97,4 @@ streaming ingestion.
 
 ## License
 
-MIT
+MIT © Md. Asibul Islam, 2026
